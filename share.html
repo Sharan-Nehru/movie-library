@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared Movie List</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background-image: url('https://c4.wallpaperflare.com/wallpaper/862/449/162/jack-reacher-star-wars-interstellar-movie-john-wick-wallpaper-thumb.jpg');
+            background-size: cover;
+            background-position: center;
+            color: white;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .movie-list {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .movies-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .movie {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px;
+            color: black;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 200px;
+        }
+        .movie img {
+            max-width: 100%;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 id="list-name">Shared Movie List</h2>
+        <div id="movie-list" class="movies-container"></div>
+    </div>
+    <script>
+        async function loadSharedList() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const listId = urlParams.get('listId');
+
+            if (!listId) {
+                alert('Invalid list ID');
+                return;
+            }
+
+            const response = await fetch(`http://localhost:5000/lists/shared/${listId}`);
+            const list = await response.json();
+
+            if (response.ok) {
+                document.getElementById('list-name').innerText = list.name;
+                const movieListDiv = document.getElementById('movie-list');
+                movieListDiv.innerHTML = '';
+
+                list.movies.forEach(movie => {
+                    movieListDiv.innerHTML += `
+                        <div class="movie">
+                            <h3>${movie.title}</h3>
+                            <p><strong>Year:</strong> ${movie.year}</p>
+                            <p><strong>Type:</strong> ${movie.type}</p>
+                            <img src="${movie.poster}" alt="Movie Poster">
+                        </div>
+                    `;
+                });
+            } else {
+                alert(list.error || 'Failed to load the list');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadSharedList);
+    </script>
+</body>
+</html>

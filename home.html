@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - Movie Library</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background-image: url('bg1.jpeg');
+            background-size: cover;
+            background-position: center;
+            color: white;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 50vh;
+            background: rgba(139, 168, 173, 0.941);
+            padding: 50px;
+            border-radius: 16px;
+        }
+        .search-bar, .create-list {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        input, button {
+            margin: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+        }
+        #results, .movie-list-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .movie {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px;
+            color: black;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 200px;
+        }
+        .movie img {
+            max-width: 100%;
+            border-radius: 8px;
+        }
+        .movie-list {
+            margin-top: 50px;
+            text-align: center;
+        }
+        .list-header {
+            text-align: center;
+            font-size: 25px;
+            margin-bottom: 20px;
+        }
+        .movies-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="home">
+    <div class="container">
+        <h1>WELCOME TO MOVIE LIBRARY</h1>
+        <div class="search-bar">
+            <input type="text" id="movie-title" placeholder="Enter movie title">
+            <button onclick="searchMovie()">Search</button>
+        </div>
+        <div id="results"></div>
+        <div class="create-list">
+            <input type="text" id="list-name" placeholder="Enter new list name">
+            <button onclick="createList()">Create List</button>
+        </div>
+        <div id="movie-lists" class="movie-list-container"></div>
+        <button onclick="logout()">Logout</button>
+    </div>
+    <script>
+        const apiKey = '4723658d'; // Replace with your OMDB API key
+
+        async function searchMovie() {
+            const title = document.getElementById('movie-title').value;
+            const response = await fetch(`http://www.omdbapi.com/?s=${title}&apikey=${apiKey}`);
+            const data = await response.json();
+
+            if (data.Response === "True") {
+                const resultDiv = document.getElementById('results');
+                resultDiv.innerHTML = "";
+                data.Search.forEach(movie => {
+                    resultDiv.innerHTML += `
+                        <div class="movie">
+                            <h3>${movie.Title}</h3>
+                            <p><strong>Year:</strong> ${movie.Year}</p>
+                            <p><strong>Type:</strong> ${movie.Type}</p>
+                            <img src="${movie.Poster}" alt="Movie Poster">
+                            <button onclick="addMovieToList('${movie.Title}', '${movie.Year}', '${movie.Type}', '${movie.Poster}')">Add to List</button>
+                        </div>
+                    `;
+                });
+            } else {
+                alert('Movies not found!');
+            }
+        }
+
+        async function createList() {
+            const listName = document.getElementById('list-name').value;
+            if (!listName) {
+                alert('Please enter a list name');
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            const response = await fetch('http://localhost:5000/lists', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token
+                },
+                body: JSON.stringify({ name: listName })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                alert('List created successfully');
+                document.getElementById('list-name').value = '';
+                loadMovieLists();
+            } else {
+                alert(result.error || 'Failed to create list');
+            }
+        }
+
+        async function addMovieToList(title, year, type, poster) {
+            const listName = prompt('Enter the name of the list to add this movie to:');
+            if (!listName) return;
+
+            const token = localStorage.getItem('token');
+            const response = await fetch('http://localhost:5000/lists/add-movie', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token
+                },
+                body: JSON.stringify({ listName, title, year, type, poster })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                alert('Movie added to list successfully');
+                loadMovieLists();
+            } else {
+                alert(result.error || 'Failed to add movie to list');
+            }
+        }
+
+        async function loadMovieLists() {
+            const token = localStorage.getItem('token');
+            const response = await fetch('http://localhost:5000/lists', {
+                headers: {
+                    'Authorization': token
+                }
+            });
+
+            const lists = await response.json();
+            const listsContainer = document.getElementById('movie-lists');
+            listsContainer.innerHTML = "";
+            lists.forEach(list => {
+                let moviesHtml = '';
+                list.movies.forEach(movie => {
+                    moviesHtml += `
+                        <div class="movie">
+                            <h3>${movie.title}</h3>
+                            <p><strong>Year:</strong> ${movie.year}</p>
+                            <p><strong>Type:</strong> ${movie.type}</p>
+                            <img src="${movie.poster}" alt="Movie Poster">
+                        </div>
+                    `;
+                });
+
+                listsContainer.innerHTML += `
+                    <div class="movie-list">
+                        <div class="list-header">
+                            <h3>${list.name}</h3>
+                            <button onclick="deleteList('${list.name}')">Delete List</button>
+                            <button onclick="shareList('${list._id}')">Share List</button>
+                        </div>
+                        <div class="movies-container">${moviesHtml}</div>
+                    </div>
+                `;
+            });
+        }
+
+        async function deleteList(name) {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://localhost:5000/lists/${name}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': token
+                }
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                alert('List deleted successfully');
+                loadMovieLists();
+            } else {
+                alert(result.error || 'Failed to delete list');
+            }
+        }
+
+        async function shareList(listId) {
+            const shareableLink = `${window.location.origin}/share.html?listId=${listId}`;
+            prompt('Copy this link to share your list:', shareableLink);
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', loadMovieLists);
+    </script>
+</body>
+</html>
